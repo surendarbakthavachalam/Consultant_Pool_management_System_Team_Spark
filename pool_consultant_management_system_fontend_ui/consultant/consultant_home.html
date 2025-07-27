@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consultant Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #F8F9FA;
+            --sidebar-bg: #ffffff;
+            --sidebar-active-bg: #212529;
+            --card-bg: #ffffff;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+        }
+
+        .dashboard {
+            display: flex;
+            height: 100vh;
+            background-color: var(--bg-main);
+        }
+        .sidebar {
+            width: 250px; background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex; flex-direction: column;
+        }
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        .sidebar-header {
+            padding: 1.5rem; font-size: 1.25rem; font-weight: 600;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .sidebar-nav { flex-grow: 1; padding: 1rem 0; }
+        .sidebar-nav ul { list-style: none; padding: 0; margin: 0; }
+        .sidebar-nav .nav-item {
+            display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem;
+            margin: 0 1rem 0.25rem; color: var(--text-secondary); text-decoration: none;
+            border-radius: 8px; transition: all 0.2s ease; font-weight: 500;
+            cursor: pointer;
+        }
+        .sidebar-nav .nav-item:hover { background: #f1f3f5; color: var(--text-primary); }
+        .sidebar-nav .nav-item.active { background: var(--sidebar-active-bg); color: white; }
+        .sidebar-nav .nav-item i { font-size: 1rem; width: 20px; text-align: center; }
+        .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border-color); }
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .main-header h1 { font-size: 1.75rem; font-weight: 600; }
+        .main-header p { color: var(--text-secondary); margin-top: 0.25rem; }
+        .stat-card {
+            background: var(--card-bg); padding: 1.5rem; border-radius: 12px;
+            border: 1px solid var(--border-color); display: flex;
+            flex-direction: column; align-items: flex-start;
+        }
+        .badge {
+            padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header"><span>Consultant Portal</span><button class="bg-transparent border-none text-gray-500 text-xl"><i class="fas fa-bars"></i></button></div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="./consultant_home.html" class="active nav-item "><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="./consultant_training.html" class="nav-item"><i class="fas fa-graduation-cap"></i> <span>Training</span></a></li>
+                    <li><a href="./consultant_attendance.html" class="nav-item"><i class="fas fa-calendar-check"></i> <span>Attendance</span></a></li>
+                    <li><a href="./consultant_certifications.html" class="nav-item"><i class="fas fa-certificate"></i> <span>Certifications</span></a></li>
+                    <li><a href="./consultant_opportunities.html" class="nav-item"><i class="fas fa-briefcase"></i> <span>Opportunities</span></a></li>
+                    <li><a href="./consultant_chatbot.html" class="nav-item"><i class="fas fa-comments"></i> <span>Chatbot</span></a></li>
+                </ul>
+            </nav>
+                        <div class="sidebar-footer"><a href="./consultant_login_page.html" class="nav-item"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></div>
+
+        </div>
+        <main class="main-content" id="consultant-content-area">
+            <!-- Content will be rendered here by JavaScript -->
+        </main>
+    </div>
+
+    <script>
+        let charts = {};
+
+        // --- API Simulation ---
+        const api = {
+            getConsultantDashboardData: function() {
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        resolve({
+                            name: 'John Doe',
+                            stats: { attendanceRate: 65, trainingProgress: 75, activeCertifications: 3, performanceScore: 88 },
+                            attendanceBreakdown: { present: 65, absent: 10, leave: 15, workFromHome: 10 },
+                            trainingSummary: { completed: 12, inProgress: 3, notAttended: 2 },
+                            performanceProgress: { labels: ['Oct', 'Nov', 'Dec', 'Jan'], scores: [75, 82, 78, 88] },
+                            recentCertifications: [
+                                { name: 'React Development', completed: '2025-01-15', status: 'Active' },
+                                { name: 'Node.js Fundamentals', completed: '2025-01-10', status: 'Active' },
+                                { name: 'AWS Cloud Practitioner', completed: '2024-10-20', status: 'Active' },
+                            ]
+                        });
+                    }, 300);
+                });
+            }
+        };
+
+        // --- Chart Rendering Logic ---
+        function destroyCharts() {
+            Object.values(charts).forEach(chart => chart && chart.destroy());
+            charts = {};
+        }
+
+        function renderConsultantCharts(data) {
+            destroyCharts();
+            const CHART_DEFAULTS = {
+                doughnut: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { padding: 15, font: { family: 'Inter' }, usePointStyle: true } } } },
+                bar: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100, ticks: { font: { family: 'Inter' } } }, x: { grid: { display: false }, ticks: { font: { family: 'Inter' } } } } }
+            };
+            charts.attendance = new Chart(document.getElementById('attendanceBreakdownChart').getContext('2d'), { type: 'doughnut', data: {
+                labels: [`Present: ${data.attendanceBreakdown.present}%`, `Absent: ${data.attendanceBreakdown.absent}%`, `Leave: ${data.attendanceBreakdown.leave}%`, `WFH: ${data.attendanceBreakdown.workFromHome}%`],
+                datasets: [{ data: Object.values(data.attendanceBreakdown), backgroundColor: ['#16a34a', '#dc2626', '#f97316', '#3b82f6'], borderColor: '#ffffff', borderWidth: 4 }]
+            }, options: CHART_DEFAULTS.doughnut });
+            charts.training = new Chart(document.getElementById('trainingSummaryChart').getContext('2d'), { type: 'doughnut', data: {
+                labels: [`Completed: ${data.trainingSummary.completed}`, `In Progress: ${data.trainingSummary.inProgress}`, `Not Attended: ${data.trainingSummary.notAttended}`],
+                datasets: [{ data: Object.values(data.trainingSummary), backgroundColor: ['#16a34a', '#f97316', '#dc2626'], borderColor: '#ffffff', borderWidth: 4 }]
+            }, options: CHART_DEFAULTS.doughnut });
+            charts.performance = new Chart(document.getElementById('performanceProgressChart').getContext('2d'), { type: 'bar', data: {
+                labels: data.performanceProgress.labels,
+                datasets: [{ label: 'Performance Score', data: data.performanceProgress.scores, backgroundColor: '#6366f1', borderRadius: 6 }]
+            }, options: CHART_DEFAULTS.bar });
+        }
+
+        // --- Page Rendering ---
+        async function renderConsultantDashboard() {
+            const consultantContentArea = document.getElementById('consultant-content-area');
+            consultantContentArea.innerHTML = `<div class="p-8 text-center text-gray-500">Loading home data...</div>`;
+            
+            const data = await api.getConsultantDashboardData();
+            
+            consultantContentArea.innerHTML = `
+                <header class="main-header">
+                    <div><h1 class="text-2xl font-bold">Welcome Back, ${data.name}</h1><p class="text-gray-500">Here's your performance overview for today</p></div>
+                    <button class="bg-gray-800 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-gray-900"><i class="fas fa-download"></i> Download Resume</button>
+                </header>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+                    <div class="stat-card"><div class="flex justify-between w-full"><h3>Attendance Rate</h3><i class="fas fa-arrow-up text-green-500"></i></div><p class="text-3xl font-bold text-green-600 mt-2">${data.stats.attendanceRate}%</p></div>
+                    <div class="stat-card"><div class="flex justify-between w-full"><h3>Training Progress</h3><i class="fas fa-arrow-up text-blue-500"></i></div><p class="text-3xl font-bold text-blue-600 mt-2">${data.stats.trainingProgress}%</p></div>
+                    <div class="stat-card"><div class="flex justify-between w-full"><h3>Active Certifications</h3><i class="fas fa-link text-purple-500"></i></div><p class="text-3xl font-bold text-purple-600 mt-2">${data.stats.activeCertifications}</p></div>
+                    <div class="stat-card"><div class="flex justify-between w-full"><h3>Performance Score</h3><i class="fas fa-chart-line text-orange-500"></i></div><p class="text-3xl font-bold text-orange-600 mt-2">${data.stats.performanceScore}</p></div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+                    <div class="bg-white p-6 rounded-lg border"><h3 class="font-semibold">Attendance Breakdown</h3><p class="text-sm text-gray-500">Your attendance status distribution</p><div class="h-64 mt-4"><canvas id="attendanceBreakdownChart"></canvas></div></div>
+                    <div class="bg-white p-6 rounded-lg border"><h3 class="font-semibold">Training Summary</h3><p class="text-sm text-gray-500">Your training program status</p><div class="h-64 mt-4"><canvas id="trainingSummaryChart"></canvas></div></div>
+                    <div class="bg-white p-6 rounded-lg border"><h3 class="font-semibold">Performance Progress</h3><p class="text-sm text-gray-500">Your monthly performance scores</p><div class="h-64 mt-4"><canvas id="performanceProgressChart"></canvas></div></div>
+                    <div class="bg-white p-6 rounded-lg border">
+                        <h3 class="font-semibold">Recent Certifications</h3><p class="text-sm text-gray-500 mb-4">Your latest achievements</p>
+                        <div class="space-y-3">${data.recentCertifications.map(cert => `<div class="flex justify-between items-center p-3 rounded-lg bg-gray-50"><div><p class="font-medium text-sm">${cert.name}</p><p class="text-xs text-gray-500">Completed: ${cert.completed}</p></div><span class="badge bg-green-100 text-green-700">${cert.status}</span></div>`).join('')}</div>
+                        <button class="mt-4 w-full text-center py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-lg">View All Certifications</button>
+                    </div>
+                </div>`;
+            
+            // Use setTimeout to ensure the canvas elements are in the DOM before rendering charts
+            setTimeout(() => renderConsultantCharts(data), 0);
+        }
+
+        // --- Initial Load ---
+        window.onload = function() {
+            renderConsultantDashboard();
+        };
+    </script>
+
+</body>
+</html>
