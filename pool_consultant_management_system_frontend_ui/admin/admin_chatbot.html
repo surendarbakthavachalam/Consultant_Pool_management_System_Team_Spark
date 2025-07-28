@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Performance Analytics - Pool Consultant Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-main: #F8F9FA;
+            --sidebar-bg: #ffffff;
+            --sidebar-active-bg: #212529;
+            --card-bg: #ffffff;
+            --text-primary: #212529;
+            --text-secondary: #6c757d;
+            --border-color: #dee2e6;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+        }
+
+        .dashboard {
+            display: flex;
+            height: 100vh;
+            background-color: var(--bg-main);
+        }
+        .sidebar {
+            width: 250px; background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex; flex-direction: column;
+            transition: width 0.3s ease;
+        }
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 1.5rem; font-size: 1.25rem; font-weight: 600;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .sidebar-nav { flex-grow: 1; padding: 1rem 0; }
+        .sidebar-nav ul { list-style: none; padding: 0; margin: 0; }
+        .sidebar-nav .nav-item {
+            display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem;
+            margin: 0 1rem 0.25rem; color: var(--text-secondary); text-decoration: none;
+            border-radius: 8px; transition: all 0.2s ease; font-weight: 500;
+            cursor: pointer;
+        }
+        .sidebar-nav .nav-item:hover { background: #f1f3f5; color: var(--text-primary); }
+        .sidebar-nav .nav-item.active { background: var(--sidebar-active-bg); color: white; }
+        .sidebar-nav .nav-item i { font-size: 1rem; width: 20px; text-align: center; }
+        .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border-color); }
+
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .main-header h1 { font-size: 1.75rem; font-weight: 600; }
+        .main-header p { color: var(--text-secondary); margin-top: 0.25rem; }
+        
+        .badge {
+            padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;
+        }
+        
+        .chat-container {
+            background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px;
+            display: flex; flex-direction: column; height: 70vh;
+        }
+        .chat-messages { flex-grow: 1; padding: 1rem; overflow-y: auto; }
+        .chat-input-area { padding: 1rem; border-top: 1px solid var(--border-color); }
+        .message { display: flex; gap: 0.75rem; margin-bottom: 1rem; max-width: 90%; }
+        .message.user { margin-left: auto; flex-direction: row-reverse; }
+        .message-content { padding: 0.75rem; border-radius: 8px; }
+        .message.bot .message-content { background-color: #f1f3f5; }
+        .message.user .message-content { background-color: var(--sidebar-active-bg); color: white; }
+        .quick-analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
+        .insight-card { border-left: 4px solid; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; }
+        .form-input {
+            width: 100%; background-color: #f8fafc; border: 1px solid #e2e8f0;
+            border-radius: 8px; padding: 0.75rem 1rem; color: #334155;
+        }
+        .form-input:focus {
+            outline: none; border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <div class="sidebar" id="admin-sidebar">
+            <div class="sidebar-header"><span>Admin Portal</span><button class="bg-transparent border-none text-gray-500 text-xl"><i class="fas fa-bars"></i></button></div>
+           <nav class="sidebar-nav">
+                <ul>
+                    <li><a  href="./admin_home.html" class="nav-item "><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="./admin_employees.html" class="nav-item"><i class="fas fa-users"></i> <span>Employees</span></a></li>
+                    <li><a href="./admin_Opportunities.html" class="nav-item"><i class="fas fa-briefcase"></i> <span>Opportunities</span></a></li>
+                    <li><a href="./admin_chatbot.html" class="active nav-item"><i class="fas fa-comments"></i> <span>Chatbot</span></a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer"><a href="./admin_login.html" class="nav-item"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></div>
+        </div>
+        <main class="main-content" id="admin-content-area">
+            <!-- Chatbot page content will be injected here -->
+        </main>
+    </div>
+
+    <script>
+        // Mock Data for the Chatbot Page
+        const mockData = {
+            admin: {
+                employees: [ // Needed for chatbot responses
+                    { name: 'Surendar', attendance: 92, training: 85, status: 'Active' },
+                    { name: 'Mirudhula', attendance: 96, training: 92, status: 'Active' },
+                    { name: 'Roshan', attendance: 85, training: 75, status: 'Bench' },
+                ],
+                performanceInsights: [
+                    { type: 'Attendance Improvement Needed', priority: 'Medium', color: 'yellow', icon: 'fa-exclamation-triangle', title: 'Attendance Improvement Needed', details: 'Multiple consultants showing declining attendance patterns in Q1.', recommendation: 'Implement flexible work policies and conduct employee satisfaction survey to identify root causes.' },
+                    { type: 'Training Program Optimization', priority: 'Medium', color: 'blue', icon: 'fa-bullseye', title: 'Training Program Optimization', details: 'Cloud computing skills are in high demand but only 40% of consultants are certified.', recommendation: 'Launch comprehensive cloud certification program with incentives. Partner with AWS/Azure for training.' },
+                    { type: 'Consistent Excellence', priority: 'Medium', color: 'green', icon: 'fa-award', title: 'Sairam - Client Satisfaction 94%', details: 'Sairam maintains high performance in data science projects with 94% client satisfaction.', recommendation: 'Leverage expertise for client presentations and technical workshops. Consider specialist track progression.' },
+                    { type: 'Certification Rate Low', priority: 'Low', color: 'yellow', icon: 'fa-arrow-down', title: 'Certification Rate Low', details: 'Only 30% of consultants have updated certifications in their primary domain.', recommendation: 'Create certification roadmaps per role and provide study groups. Set quarterly certification targets.' },
+                ]
+            }
+        };
+
+        const adminContentArea = document.getElementById('admin-content-area');
+
+        // --- Chatbot Page Rendering ---
+        function renderChatbotPage() {
+            const { performanceInsights } = mockData.admin;
+            const quickQueries = ['Show top performers', 'Identify low performers', 'Attendance trends analysis', 'Skills gap assessment', 'Bench utilization report', 'Training completion rates', 'Certification recommendations', 'Team improvement suggestions'];
+
+            adminContentArea.innerHTML = `
+                <header class="main-header"><div><h1>AI Performance Analytics</h1><p>Get AI-powered insights on team performance and improvement recommendations</p></div></header>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+                    <!-- Left Side: Chat -->
+                    <div>
+                        <div class="chat-container">
+                            <div class="p-4 border-b border-gray-200">
+                                <h3 class="font-semibold">AI Analytics Assistant</h3>
+                                <p class="text-sm text-gray-500">Ask for performance insights, trend analysis, and improvement recommendations</p>
+                            </div>
+                            <div class="chat-messages" id="chat-messages">
+                                <div class="message bot">
+                                    <div class="message-content">
+                                        Hello! I'm your AI admin assistant. I can help you identify top and low performers, analyze trends, and provide recommendations for improving team performance. What would you like to know?
+                                        <div class="text-xs text-gray-400 mt-2">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <div class="relative">
+                                    <input type="text" id="chat-input" class="form-input pr-10" placeholder="Ask about team performance...">
+                                    <button onclick="sendChatMessage()" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-800"><i class="fas fa-paper-plane"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-6">
+                            <h3 class="font-semibold mb-2">Quick Analytics</h3>
+                            <p class="text-sm text-gray-500 mb-4">Common performance analysis queries</p>
+                            <div class="quick-analytics-grid">
+                                ${quickQueries.map(q => `<button onclick="handleQuickQuery('${q}')" class="text-left border border-gray-300 rounded-lg p-3 text-sm font-medium hover:bg-gray-50">${q}</button>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Right Side: Insights -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-4">
+                        <h3 class="font-semibold">AI Performance Insights</h3>
+                        <p class="text-sm text-gray-500 mb-4">Automated analysis and recommendations based on team data</p>
+                        <div class="overflow-y-auto h-[75vh]">
+                            ${performanceInsights.map(renderInsightCard).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Add event listener for Enter key on chat input
+            document.getElementById('chat-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendChatMessage();
+                }
+            });
+        }
+
+        function renderInsightCard(insight) {
+            const colors = { High: 'red', Medium: 'yellow', Low: 'green' };
+            const borderColors = { red: 'border-red-500 bg-red-50', yellow: 'border-yellow-500 bg-yellow-50', green: 'border-green-500 bg-green-50', blue: 'border-blue-500 bg-blue-50' };
+            return `
+                <div class="insight-card ${borderColors[insight.color]}">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="font-bold text-sm flex items-center gap-2"><i class="fas ${insight.icon}"></i> ${insight.type}</h4>
+                        <span class="badge bg-${colors[insight.priority]}-200 text-${colors[insight.priority]}-800">${insight.priority}</span>
+                    </div>
+                    <p class="font-semibold text-gray-800">${insight.title}</p>
+                    <p class="text-sm text-gray-600 my-2">${insight.details}</p>
+                    <div class="text-xs bg-white p-2 rounded"><strong>Recommendation:</strong> ${insight.recommendation}</div>
+                </div>
+            `;
+        }
+        
+        // --- Chatbot Logic ---
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const query = input.value.trim();
+            if (!query) return;
+            
+            addMessageToChat(query, 'user');
+            input.value = '';
+            
+            // Simulate thinking
+            setTimeout(() => {
+                const response = getChatbotResponse(query);
+                addMessageToChat(response, 'bot');
+            }, 1000);
+        }
+        
+        function handleQuickQuery(query) {
+            addMessageToChat(query, 'user');
+            // Simulate thinking
+            setTimeout(() => {
+                const response = getChatbotResponse(query);
+                addMessageToChat(response, 'bot');
+            }, 1000);
+        }
+
+        function addMessageToChat(text, sender) {
+            const chatMessages = document.getElementById('chat-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            messageDiv.innerHTML = `<div class="message-content">${text}</div>`;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function getChatbotResponse(query) {
+            const employees = mockData.admin.employees;
+            query = query.toLowerCase();
+
+            if (query.includes('top performers')) {
+                const topPerformers = employees.filter(e => e.attendance > 90 && e.training > 85).sort((a, b) => (b.attendance + b.training) - (a.attendance + a.training));
+                if (topPerformers.length > 0) {
+                    return `Based on performance metrics, our top performers are:<br><ul>${topPerformers.map(e => `<li>- <strong>${e.name}</strong> (Attendance: ${e.attendance}%, Training: ${e.training}%)</li>`).join('')}</ul>`;
+                }
+                return "No employees currently meet the criteria for top performers.";
+            }
+            if (query.includes('low performers') || query.includes('needs attention')) {
+                const lowPerformers = employees.filter(e => e.status === 'Bench' || e.training < 80).sort((a, b) => a.training - b.training);
+                if (lowPerformers.length > 0) {
+                    return `Here are employees who might need attention:<br><ul>${lowPerformers.map(e => `<li>- <strong>${e.name}</strong> (Status: ${e.status}, Training: ${e.training}%)</li>`).join('')}</ul>I recommend a personalized training plan.`;
+                }
+                return "All employees are currently meeting performance expectations.";
+            }
+            if (query.includes('bench utilization')) {
+                const onBench = employees.filter(e => e.status === 'Bench');
+                return `There are currently ${onBench.length} employees on the bench: ${onBench.map(e => e.name).join(', ')}. We should prioritize finding projects for them.`;
+            }
+            
+            return "I can help with identifying top/low performers and analyzing bench utilization. Please try one of those queries.";
+        }
+        
+        // --- Logout Functionality ---
+        function logout() {
+            // Redirects the user to the main login selection page
+            window.location.href = 'main_login_page.html'; 
+        }
+
+        // --- Initial Application Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderChatbotPage();
+        });
+    </script>
+</body>
+</html>
