@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="https://readme-templates.com/banner-example.png" alt="Pool Consultant Management System" width="100%" />
-</p>
+
 
 <h1 align="center">💼 Pool Consultant Management System (CLI Edition)</h1>
 
