@@ -927,7 +927,13 @@ def run_cli_system():
     while True:
         print(f"\n🔐 Authentication Required")
         print("Available usernames: admin, sai, nandhini, priya, rajesh, kavya, arjun, divya, kiran")
-
+        print("=" * 80)
+        print("For consultant Access username with Password")
+        print("username : admin , Password : admin123  ")
+        print("=" * 80)
+        print("For consultant Access username with Password ")
+        print("{username : sai ,  Password : sai123} \n {username : nandhini , Password : nandhini123 }  \n {username : priya , Password : priya123 } \n {username : rajesh , Password : rajesh123} \n {username : kavya , Password : kavya123 } \n {username : arjun , Password : arjun123 }  \n {username : divya , Password : divya123 } \n {username : kiran Password : kiran123}  ")
+        print("=" * 80)
         username, role = authenticate_user()
 
         if username and role:
