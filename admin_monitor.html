@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-main: #F8F9FA; --sidebar-bg: #ffffff; --sidebar-active-bg: #212529; --card-bg: #ffffff; --border-color: #dee2e6; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); }
+        .dashboard { display: flex; height: 100vh; }
+        .sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; }
+        .sidebar-header { padding: 1.5rem; font-size: 1.25rem; font-weight: 600; }
+        .sidebar-nav { flex-grow: 1; padding: 1rem 0; }
+        .sidebar-nav .nav-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem; margin: 0 1rem 0.25rem; color: #6c757d; text-decoration: none; border-radius: 8px; font-weight: 500; }
+        .sidebar-nav .nav-item:hover { background: #f1f3f5; }
+        .sidebar-nav .nav-item.active { background: var(--sidebar-active-bg); color: white; }
+        .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border-color); }
+        .stat-card-info h3 { font-size: 0.875rem; color: #6c757d; }
+        .stat-card-info p { font-size: 2rem; font-weight: 700; }
+        .stat-card-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+    </style>
+</head>
+<body>
+    <div id="admin-dashboard-container" class="dashboard">
+        <div class="sidebar" id="admin-sidebar">
+            <div class="sidebar-header"><span>Admin Portal</span></div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="/admin/home" class="nav-item"><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="/admin/employees" class="nav-item"><i class="fas fa-users"></i> <span>Employees</span></a></li>
+                    <li><a href="/admin/opportunities" class="nav-item"><i class="fas fa-briefcase"></i> <span>Opportunities</span></a></li>
+                    <li><a href="/admin/reports" class="nav-item"><i class="fas fa-chart-pie"></i> <span>Reports</span></a></li>
+                    <li><a href="/admin/monitor" class="nav-item active"><i class="fas fa-tachometer-alt"></i> <span>Monitor</span></a></li>
+                    <li><a href="/admin/chatbot" class="nav-item"><i class="fas fa-comments"></i> <span>Chatbot</span></a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="/logout" class="nav-item"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
+            </div>
+        </div>
+        <main class="main-content" id="admin-content-area"></main>
+    </div>
+    <script>
+        let statusChart = null;
+        let monitorInterval = null;
+        const adminContentArea = document.getElementById('admin-content-area');
+
+        function initializeDonutChart() {
+            const ctx = document.getElementById('statusChart').getContext('2d');
+            statusChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['In Progress', 'In Queue', 'Completed', 'Cancelled'],
+                    datasets: [{
+                        label: 'Projects',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: [
+                            '#3b82f6', // Blue 500
+                            '#f97316', // Orange 500
+                            '#22c55e', // Green 500
+                            '#ef4444', // Red 500
+                        ],
+                        borderColor: '#ffffff',
+                        borderWidth: 4,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 20,
+                                usePointStyle: true,
+                                pointStyle: 'circle'
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += context.parsed;
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function formatTimeAgo(dateString) {
+            if (!dateString) return '';
+            
+            const date = new Date(dateString);
+            const now = new Date();
+            const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+            if (seconds < 2) {
+                return "just now";
+            }
+            if (seconds < 60) {
+                return `${seconds} seconds ago`;
+            }
+
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) {
+                return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+            }
+
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) {
+                return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+            }
+
+            const days = Math.floor(hours / 24);
+            if (days === 1) {
+                return 'Yesterday';
+            }
+            return `${days} days ago`;
+        }
+
+
+        async function updateMonitorData() {
+            try {
+                const [statsRes, activityRes] = await Promise.all([
+                    fetch(window.location.origin + '/admin/api/monitor-stats'),
+                    fetch(window.location.origin + '/admin/api/project-activity')
+                ]);
+
+                if (!statsRes.ok || !activityRes.ok) {
+                    throw new Error('Failed to fetch monitoring data');
+                }
+
+                const stats = await statsRes.json();
+                const activity = await activityRes.json();
+
+                // Update stat cards
+                document.getElementById('projects-in-queue').textContent = stats.projectsInQueue;
+                document.getElementById('avg-duration').textContent = stats.avgProjectDuration;
+                document.getElementById('failure-rate').textContent = stats.projectFailureRate;
+                
+                const failureRateCard = document.getElementById('failure-rate-card');
+                const rate = parseFloat(stats.projectFailureRate);
+                failureRateCard.classList.remove('border-l-green-500', 'border-l-yellow-500', 'border-l-red-500');
+                if (rate > 25) failureRateCard.classList.add('border-l-red-500');
+                else if (rate > 10) failureRateCard.classList.add('border-l-yellow-500');
+                else failureRateCard.classList.add('border-l-green-500');
+
+
+                // Update donut chart data
+                if (statusChart) {
+                    statusChart.data.datasets[0].data = [
+                        stats.activeProjects,
+                        stats.projectsInQueue,
+                        stats.completedProjects,
+                        stats.failedProjects
+                    ];
+                    statusChart.update();
+                }
+
+                // Update activity log
+                const logContainer = document.getElementById('monitor-activity-log');
+                const statusMap = {
+                    'Open': { icon: 'fa-folder-plus', color: 'text-blue-500', text: 'New opportunity posted' },
+                    'In Progress': { icon: 'fa-cogs', color: 'text-yellow-500', text: 'Project has started' },
+                    'Completed': { icon: 'fa-check-circle', color: 'text-green-500', text: 'Project completed' },
+                    'Cancelled': { icon: 'fa-times-circle', color: 'text-red-500', text: 'Project cancelled' }
+                };
+                
+                let logHtml = '';
+                activity.forEach(item => {
+                    const details = statusMap[item.status] || { icon: 'fa-question-circle', color: 'text-gray-500', text: 'Status updated' };
+                    const dateStr = item.lastUpdate && item.lastUpdate.$date ? item.lastUpdate.$date : new Date().toISOString();
+                    const friendlyTime = formatTimeAgo(dateStr);
+                    // --- THIS LINE IS CHANGED ---
+                    logHtml += `
+                        <div class="flex items-start gap-3 py-2 border-b border-gray-100">
+                            <i class="fas ${details.icon} ${details.color} mt-1"></i>
+                            <div>
+                                <p class="font-medium">${item.title}</p>
+                                <p class="text-xs text-gray-500">${details.text} &bull; ${friendlyTime}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                logContainer.innerHTML = logHtml;
+
+            } catch (error) {
+                console.error("Error updating monitor:", error);
+                if (monitorInterval) clearInterval(monitorInterval);
+            }
+        }
+
+        async function renderMonitorPage() {
+            adminContentArea.innerHTML = `
+                <header>
+                    <h1 class="text-2xl font-bold">Project Monitor</h1>
+                    <p class="text-gray-500">Real-time analysis of project lifecycle and status</p>
+                </header>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+                    <div class="bg-white p-6 rounded-lg border flex justify-between items-center"><div class="stat-card-info"><h3>Projects in Queue</h3><p id="projects-in-queue" class="text-blue-600">0</p></div><div class="stat-card-icon bg-blue-100 text-blue-600"><i class="fas fa-layer-group"></i></div></div>
+                    <div class="bg-white p-6 rounded-lg border flex justify-between items-center"><div class="stat-card-info"><h3>Avg. Project Duration</h3><p id="avg-duration" class="text-purple-600">0 days</p></div><div class="stat-card-icon bg-purple-100 text-purple-600"><i class="fas fa-clock"></i></div></div>
+                    <div id="failure-rate-card" class="bg-white p-6 rounded-lg border border-l-4 flex justify-between items-center"><div class="stat-card-info"><h3>Project Failure Rate</h3><p id="failure-rate" class="text-red-600">0%</p></div><div class="stat-card-icon bg-red-100 text-red-600"><i class="fas fa-exclamation-triangle"></i></div></div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
+                    <div class="lg:col-span-3 bg-white p-6 rounded-lg border">
+                        <h3 class="font-semibold mb-4">Project Status Distribution</h3>
+                        <div class="h-96 relative"><canvas id="statusChart"></canvas></div>
+                    </div>
+                    <div class="lg:col-span-2 bg-white p-6 rounded-lg border"><h3 class="font-semibold mb-4">Live Project Activity</h3><div id="monitor-activity-log" class="h-96 overflow-y-auto pr-2 text-sm"></div></div>
+                </div>`;
+            
+            initializeDonutChart();
+            await updateMonitorData(); // Initial load
+            monitorInterval = setInterval(updateMonitorData, 5000); // Update every 5 seconds
+        }
+
+        window.onload = renderMonitorPage;
+        window.onbeforeunload = () => { if (monitorInterval) clearInterval(monitorInterval); };
+    </script>
+</body>
+</html>

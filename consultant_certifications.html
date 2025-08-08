@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consultant Certifications</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-main: #F8F9FA; --sidebar-bg: #ffffff; --sidebar-active-bg: #212529; --card-bg: #ffffff; --border-color: #dee2e6; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); }
+        .dashboard { display: flex; height: 100vh; }
+        .sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; }
+        .sidebar-header { padding: 1.5rem; font-size: 1.25rem; font-weight: 600; }
+        .sidebar-nav { flex-grow: 1; padding: 1rem 0; }
+        .sidebar-nav .nav-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem; margin: 0 1rem 0.25rem; color: #6c757d; text-decoration: none; border-radius: 8px; font-weight: 500; }
+        .sidebar-nav .nav-item:hover { background: #f1f3f5; }
+        .sidebar-nav .nav-item.active { background: var(--sidebar-active-bg); color: white; }
+        .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border-color); }
+        .badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+        .form-input, .form-textarea { width: 100%; background-color: #F3F4F6; border-radius: 8px; padding: 0.75rem 1rem; border: 1px solid var(--border-color); }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; opacity: 0; transition: opacity 0.3s ease; }
+        .modal-overlay.active { opacity: 1; display: flex; }
+        .modal-content { background-color: white; padding: 2rem; border-radius: 12px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; transform: scale(0.95); transition: transform 0.3s ease; }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header"><span>Consultant Portal</span></div>
+            <nav class="sidebar-nav">
+               <ul>
+                    <li><a href="/consultant/home" class="nav-item"><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="/consultant/training" class="nav-item"><i class="fas fa-graduation-cap"></i> <span>Training</span></a></li>
+                    <li><a href="/consultant/attendance" class="nav-item"><i class="fas fa-calendar-check"></i> <span>Attendance</span></a></li>
+                    <li><a href="/consultant/certifications" class="nav-item active"><i class="fas fa-certificate"></i> <span>Certifications</span></a></li>
+                    <li><a href="/consultant/opportunities" class="nav-item"><i class="fas fa-briefcase"></i> <span>Opportunities</span></a></li>
+                    <li><a href="/consultant/resume-builder" class="nav-item"><i class="fas fa-file-alt"></i> <span>Resume Builder</span></a></li>
+                    <li><a href="/consultant/chatbot" class="nav-item"><i class="fas fa-comments"></i> <span>Chatbot</span></a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer"><a href="/logout" class="nav-item"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></div>
+        </div>
+        <main class="main-content" id="consultant-content-area"></main>
+    </div>
+    <div id="modal-container"></div>
+    <script>
+        const consultantContentArea = document.getElementById('consultant-content-area');
+        const modalContainer = document.getElementById('modal-container');
+        let allCertifications = [];
+
+        function renderCertificationCard(cert) {
+            const statusStyle = cert.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+            const certId = cert._id ? cert._id.$oid : null;
+            return `
+                <div class="bg-white p-6 rounded-lg border">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h2 class="text-lg font-bold">${cert.title} <span class="badge ${statusStyle}">${cert.status}</span></h2>
+                            <p class="text-sm font-semibold text-gray-600 mt-1">${cert.issuer}</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="openAddCertificationModal('${certId}')" class="text-gray-500"><i class="fas fa-pencil-alt"></i></button>
+                            <button onclick="deleteCertification('${certId}')" class="text-gray-500"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 my-4">${cert.description || ''}</p>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm border-t pt-4">
+                        <div><p class="font-medium">Category</p><p>${cert.category}</p></div>
+                        <div><p class="font-medium">Issue Date</p><p>${cert.issueDate}</p></div>
+                        <div><p class="font-medium">Expiry Date</p><p>${cert.expiryDate}</p></div>
+                        <div><p class="font-medium">Credential ID</p><p>${cert.credentialId || 'N/A'}</p></div>
+                    </div>
+                </div>`;
+        }
+
+        async function renderConsultantCertificationsPage() {
+            consultantContentArea.innerHTML = `<div class="p-8 text-center text-gray-500">Loading certifications...</div>`;
+            const response = await fetch('/consultant/api/certifications');
+            const data = await response.json();
+            allCertifications = data.list || [];
+            
+            consultantContentArea.innerHTML = `
+                <header class="flex justify-between items-center mb-4">
+                    <div><h1 class="text-2xl font-bold">Certifications</h1><p class="text-gray-500">Manage your credentials</p></div>
+                    <button onclick="openAddCertificationModal()" class="bg-gray-800 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2"><i class="fas fa-plus"></i> Add Certification</button>
+                </header>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white p-4 rounded-lg border"><h3>Total</h3><p class="text-2xl font-bold">${data.stats.total}</p></div>
+                    <div class="bg-white p-4 rounded-lg border"><h3>Active</h3><p class="text-2xl font-bold text-green-600">${data.stats.active}</p></div>
+                    <div class="bg-white p-4 rounded-lg border"><h3>Expired</h3><p class="text-2xl font-bold text-red-600">${data.stats.expired}</p></div>
+                    <div class="bg-white p-4 rounded-lg border"><h3>Categories</h3><p class="text-2xl font-bold text-blue-600">${data.stats.categories}</p></div>
+                </div>
+                <div class="space-y-6 mt-6">${allCertifications.map(renderCertificationCard).join('') || `<p class="text-center text-gray-500">No certifications added yet.</p>`}</div>`;
+        }
+
+        function openModal(content) { modalContainer.innerHTML = `<div class="modal-overlay active" onclick="closeModal(event)"><div class="modal-content">${content}</div></div>`; }
+        function closeModal(event) { if (!event || event.target === event.currentTarget) { modalContainer.innerHTML = ''; } }
+
+        function openAddCertificationModal(certId = null) {
+            const cert = certId ? allCertifications.find(c => c._id.$oid === certId) : { title: '', issuer: '', issueDate: '', expiryDate: '', category: '', credentialId: '', description: '' };
+            const modalTitle = certId ? 'Edit Certification' : 'Add New Certification';
+            const modalContent = `
+                <div class="flex justify-between items-center border-b pb-4 mb-4"><h2 class="text-xl font-bold">${modalTitle}</h2><button onclick="closeModal()" class="text-gray-500 text-2xl">&times;</button></div>
+                <form id="add-cert-form" onsubmit="addOrUpdateCertification(event, '${certId || ''}')">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label class="block text-sm">Title</label><input type="text" name="title" class="form-input" value="${cert.title || ''}" required></div>
+                        <div><label class="block text-sm">Issuer</label><input type="text" name="issuer" class="form-input" value="${cert.issuer || ''}" required></div>
+                        <div><label class="block text-sm">Issue Date</label><input type="date" name="issueDate" class="form-input" value="${cert.issueDate || ''}" required></div>
+                        <div><label class="block text-sm">Expiry Date</label><input type="date" name="expiryDate" class="form-input" value="${cert.expiryDate || ''}"></div>
+                        <div><label class="block text-sm">Category</label><input type="text" name="category" class="form-input" value="${cert.category || ''}" required></div>
+                        <div><label class="block text-sm">Credential ID</label><input type="text" name="credentialId" class="form-input" value="${cert.credentialId || ''}"></div>
+                    </div>
+                    <div class="mt-4"><label class="block text-sm">Description</label><textarea name="description" class="form-textarea">${cert.description || ''}</textarea></div>
+                    <div class="flex justify-end gap-4 mt-6">
+                        <button type="button" onclick="closeModal()" class="border font-semibold px-4 py-2 rounded-lg">Cancel</button>
+                        <button type="submit" class="bg-gray-800 text-white font-semibold px-4 py-2 rounded-lg">Save</button>
+                    </div>
+                </form>`;
+            openModal(modalContent);
+        }
+        
+        async function addOrUpdateCertification(event, certId) {
+            event.preventDefault();
+            const form = event.target;
+            const certData = { 
+                _id: certId ? { $oid: certId } : undefined,
+                title: form.title.value, issuer: form.issuer.value, issueDate: form.issueDate.value, 
+                expiryDate: form.expiryDate.value, category: form.category.value, credentialId: form.credentialId.value, 
+                description: form.description.value, status: (form.expiryDate.value && new Date(form.expiryDate.value) < new Date()) ? 'Expired' : 'Active' 
+            };
+            await fetch('/consultant/api/certifications', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(certData)
+            });
+            closeModal();
+            renderConsultantCertificationsPage();
+        }
+
+        async function deleteCertification(certId) {
+            if (confirm('Are you sure you want to delete this certification?')) {
+                await fetch('/consultant/api/certifications', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: certId })
+                });
+                renderConsultantCertificationsPage();
+            }
+        }
+        window.onload = renderConsultantCertificationsPage;
+    </script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consultant Attendance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-main: #F8F9FA; --sidebar-bg: #ffffff; --sidebar-active-bg: #212529; --card-bg: #ffffff; --border-color: #dee2e6; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); }
+        .dashboard { display: flex; height: 100vh; }
+        .sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; }
+        .sidebar-header { padding: 1.5rem; font-size: 1.25rem; font-weight: 600; }
+        .sidebar-nav { flex-grow: 1; padding: 1rem 0; }
+        .sidebar-nav .nav-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem; margin: 0 1rem 0.25rem; color: #6c757d; text-decoration: none; border-radius: 8px; font-weight: 500; }
+        .sidebar-nav .nav-item:hover { background: #f1f3f5; }
+        .sidebar-nav .nav-item.active { background: var(--sidebar-active-bg); color: white; }
+        .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border-color); }
+        .calendar-nav-btn { background-color: #e9ecef; border-radius: 50%; width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s; }
+        .calendar-nav-btn:hover { background-color: #dee2e6; }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header"><span>Consultant Portal</span></div>
+            <nav class="sidebar-nav">
+               <ul>
+                    <li><a href="/consultant/home" class="nav-item"><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="/consultant/training" class="nav-item"><i class="fas fa-graduation-cap"></i> <span>Training</span></a></li>
+                    <li><a href="/consultant/attendance" class="nav-item active"><i class="fas fa-calendar-check"></i> <span>Attendance</span></a></li>
+                    <li><a href="/consultant/certifications" class="nav-item"><i class="fas fa-certificate"></i> <span>Certifications</span></a></li>
+                    <li><a href="/consultant/opportunities" class="nav-item"><i class="fas fa-briefcase"></i> <span>Opportunities</span></a></li>
+                    <li><a href="/consultant/resume-builder" class="nav-item"><i class="fas fa-file-alt"></i> <span>Resume Builder</span></a></li>
+                    <li><a href="/consultant/chatbot" class="nav-item"><i class="fas fa-comments"></i> <span>Chatbot</span></a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer"><a href="/logout" class="nav-item"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></div>
+        </div>
+        <main class="main-content" id="consultant-content-area"></main>
+    </div>
+    <script>
+        let charts = {};
+        let allAttendanceRecords = [];
+        let currentCalendarDate = new Date();
+
+        const consultantContentArea = document.getElementById('consultant-content-area');
+
+        function destroyCharts() { Object.values(charts).forEach(chart => chart && chart.destroy()); charts = {}; }
+
+        function renderAttendanceCharts(data) {
+            destroyCharts();
+            const CHART_DEFAULTS = { 
+                doughnut: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'right' } } }, 
+                bar: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { stacked: true }, y: { stacked: true } } } 
+            };
+            
+            // Updated breakdown chart data and labels
+            const breakdownData = { 
+                labels: [`Present`, `Absent`, `Work From Home`], 
+                datasets: [{ 
+                    data: [data.breakdown.present, data.breakdown.absent, data.breakdown.wfh], 
+                    backgroundColor: ['#16a34a', '#ef4444', '#3b82f6'], 
+                    borderColor: '#ffffff', 
+                    borderWidth: 4 
+                }] 
+            };
+            charts.attendanceBreakdown = new Chart(document.getElementById('attendanceBreakdownChart').getContext('2d'), { type: 'doughnut', data: breakdownData, options: CHART_DEFAULTS.doughnut });
+
+            // Updated trends chart data and labels
+            const trendsData = { 
+                labels: data.trends.labels, 
+                datasets: [ 
+                    { label: 'Present', data: data.trends.present, backgroundColor: '#16a34a' }, 
+                    { label: 'Absent', data: data.trends.absent, backgroundColor: '#ef4444' },
+                    { label: 'WFH', data: data.trends.wfh, backgroundColor: '#3b82f6' } 
+                ] 
+            };
+            charts.attendanceTrends = new Chart(document.getElementById('attendanceTrendsChart').getContext('2d'), { type: 'bar', data: trendsData, options: CHART_DEFAULTS.bar });
+        }
+
+        function renderCalendar() {
+            const container = document.getElementById('calendar-container');
+            if (!container) return;
+
+            const year = currentCalendarDate.getFullYear();
+            const month = currentCalendarDate.getMonth();
+
+            const monthRecords = allAttendanceRecords.filter(record => {
+                const recordDate = new Date(record.date);
+                return recordDate.getFullYear() === year && recordDate.getMonth() === month;
+            });
+            
+            // Map records to days for easy lookup
+            const eventsByDay = {};
+            monthRecords.forEach(record => {
+                const day = new Date(record.date).getDate();
+                // Prioritize certain statuses if multiple entries exist for a day
+                const priority = { 'A': 4, 'L': 3, 'W': 2, 'P': 1 };
+                const currentStatus = record.status[0].toUpperCase();
+                if (!eventsByDay[day] || priority[currentStatus] > priority[eventsByDay[day]]) {
+                    eventsByDay[day] = currentStatus;
+                }
+            });
+
+            const statusInfo = { 'P': { bg: 'bg-green-100' }, 'A': { bg: 'bg-red-100' }, 'L': { bg: 'bg-red-100' }, 'W': { bg: 'bg-blue-100' } };
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            
+            let html = `
+                <div class="flex justify-between items-center mb-4">
+                    <button id="prev-month" class="calendar-nav-btn"><i class="fas fa-chevron-left"></i></button>
+                    <h3 class="font-semibold text-lg">${new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' })}</h3>
+                    <button id="next-month" class="calendar-nav-btn"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <div class="grid grid-cols-7 gap-1 text-center font-semibold text-sm text-gray-500">${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => `<div>${d}</div>`).join('')}</div>
+                <div class="grid grid-cols-7 gap-2 mt-2">`;
+            
+            for (let i = 0; i < firstDay; i++) html += `<div></div>`;
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const status = eventsByDay[day];
+                html += `<div class="h-16 flex items-center justify-center rounded-lg ${status ? statusInfo[status].bg : 'bg-gray-100'}">${day}</div>`;
+            }
+            container.innerHTML = html + `</div>`;
+
+            // Add event listeners after rendering
+            document.getElementById('prev-month').addEventListener('click', () => {
+                currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+                renderCalendar();
+            });
+            document.getElementById('next-month').addEventListener('click', () => {
+                currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+                renderCalendar();
+            });
+        }
+
+        async function renderConsultantAttendancePage() {
+            consultantContentArea.innerHTML = `<div class="p-8 text-center text-gray-500">Loading attendance data...</div>`;
+            try {
+                const response = await fetch('/consultant/api/attendance');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const data = await response.json();
+                allAttendanceRecords = data.all_records;
+                
+                consultantContentArea.innerHTML = `
+                    <header><h1>Attendance Overview</h1><p class="text-gray-500">Track your attendance patterns</p></header>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
+                        <div class="bg-white p-4 rounded-lg border"><h3>Monthly Attendance</h3><p class="text-2xl font-bold text-green-600">${data.stats.monthlyAttendance}%</p></div>
+                        <div class="bg-white p-4 rounded-lg border"><h3>Present Days</h3><p class="text-2xl font-bold text-green-600">${data.stats.presentDays}</p></div>
+                        <div class="bg-white p-4 rounded-lg border"><h3>Absent Days</h3><p class="text-2xl font-bold text-red-600">${data.stats.absentDays}</p></div>
+                        <div class="bg-white p-4 rounded-lg border"><h3>WFH Days</h3><p class="text-2xl font-bold text-blue-600">${data.stats.wfhDays}</p></div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mt-6">
+                        <div class="lg:col-span-2 bg-white p-6 rounded-lg border"><h3>This Month's Breakdown</h3><div class="h-64 mt-4"><canvas id="attendanceBreakdownChart"></canvas></div></div>
+                        <div class="lg:col-span-3 bg-white p-6 rounded-lg border"><h3>3-Month Trend</h3><div class="h-64 mt-4"><canvas id="attendanceTrendsChart"></canvas></div></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border mt-6" id="calendar-container"></div>`;
+                
+                renderCalendar();
+                setTimeout(() => renderAttendanceCharts(data), 50);
+            } catch(error) {
+                consultantContentArea.innerHTML = `<div class="p-8 text-center text-red-500">Error loading attendance data. Please try again.</div>`;
+                console.error("Error fetching or rendering attendance page:", error);
+            }
+        }
+        window.onload = renderConsultantAttendancePage;
+    </script>
+</body>
+</html>

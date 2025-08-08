@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consultant Job Opportunities</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-main: #F8F9FA; --sidebar-bg: #ffffff; --sidebar-active-bg: #212529; --card-bg: #ffffff; --border-color: #dee2e6; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); }
+        .dashboard { display: flex; height: 100vh; }
+        .sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; }
+        .sidebar-header { padding: 1.5rem; font-size: 1.25rem; font-weight: 600; }
+        .sidebar-nav { flex-grow: 1; padding: 1rem 0; }
+        .sidebar-nav .nav-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem; margin: 0 1rem 0.25rem; color: #6c757d; text-decoration: none; border-radius: 8px; font-weight: 500; }
+        .sidebar-nav .nav-item:hover { background: #f1f3f5; }
+        .sidebar-nav .nav-item.active { background: var(--sidebar-active-bg); color: white; }
+        .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border-color); }
+        .badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+        .skill-tag { background-color: #e9ecef; padding: 0.25rem 0.75rem; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header"><span>Consultant Portal</span></div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="/consultant/home" class="nav-item"><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="/consultant/training" class="nav-item"><i class="fas fa-graduation-cap"></i> <span>Training</span></a></li>
+                    <li><a href="/consultant/attendance" class="nav-item"><i class="fas fa-calendar-check"></i> <span>Attendance</span></a></li>
+                    <li><a href="/consultant/certifications" class="nav-item"><i class="fas fa-certificate"></i> <span>Certifications</span></a></li>
+                    <li><a href="/consultant/opportunities" class="nav-item active"><i class="fas fa-briefcase"></i> <span>Opportunities</span></a></li>
+                    <li><a href="/consultant/resume-builder" class="nav-item"><i class="fas fa-file-alt"></i> <span>Resume Builder</span></a></li>
+                    <li><a href="/consultant/chatbot" class="nav-item"><i class="fas fa-comments"></i> <span>Chatbot</span></a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer"><a href="/logout" class="nav-item"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a></div>
+        </div>
+        <main class="main-content" id="consultant-content-area"></main>
+    </div>
+    <script>
+        function renderConsultantOpportunityCard(job) {
+            const statusStyles = {
+                'Under Consideration': { badge: 'bg-yellow-100 text-yellow-800', buttons: `<button class="border font-semibold px-4 py-2 rounded-lg" disabled>Under Review</button>` },
+                'Accepted': { badge: 'bg-green-100 text-green-800', buttons: `<button class="border font-semibold px-4 py-2 rounded-lg" disabled>Accepted</button>` },
+                'Rejected': { badge: 'bg-red-100 text-red-800', buttons: `<button class="border font-semibold px-4 py-2 rounded-lg" disabled>Rejected</button>` },
+                'default': { badge: '', buttons: `<button onclick="applyForJob('${job._id.$oid}')" class="bg-gray-800 text-white font-semibold px-4 py-2 rounded-lg">Apply Now</button>` }
+            };
+            const style = statusStyles[job.applicationStatus] || statusStyles['default'];
+            return `
+                <div class="bg-white p-6 rounded-lg border">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h2 class="text-lg font-bold">${job.title} ${job.applicationStatus ? `<span class="badge ${style.badge}">${job.applicationStatus}</span>` : ''}</h2>
+                            <p class="text-sm font-semibold text-gray-600 mt-1">${job.company}</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 my-4">${job.description}</p>
+                    <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-500">
+                        <span><i class="fas fa-map-marker-alt mr-2"></i>${job.location}</span>
+                        <span><i class="fas fa-wallet mr-2"></i>${job.salary}</span>
+                        <span><i class="fas fa-briefcase mr-2"></i>${job.experience}</span>
+                    </div>
+                    <div class="mt-4 pt-4 border-t flex items-center justify-between">
+                        <div class="flex flex-wrap gap-2">${(job.skills || []).map(skill => `<span class="skill-tag">${skill}</span>`).join('')}</div>
+                        <div class="flex gap-4">${style.buttons}</div>
+                    </div>
+                </div>`;
+        }
+
+        async function renderConsultantOpportunitiesPage() {
+            const consultantContentArea = document.getElementById('consultant-content-area');
+            consultantContentArea.innerHTML = `<div class="p-8 text-center text-gray-500">Loading opportunities...</div>`;
+            const response = await fetch('/consultant/api/opportunities');
+            const data = await response.json();
+            consultantContentArea.innerHTML = `
+                <header><h1>Job Opportunities</h1><p class="text-gray-500">Explore and apply for career opportunities</p></header>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
+                    <div class="bg-white p-4 rounded-lg border"><h3>Total Opportunities</h3><p class="text-2xl font-bold text-blue-600">${data.stats.total}</p></div>
+                    <div class="bg-white p-4 rounded-lg border"><h3>Applications Sent</h3><p class="text-2xl font-bold text-gray-600">${data.stats.sent}</p></div>
+                    <div class="bg-white p-4 rounded-lg border"><h3>Under Review</h3><p class="text-2xl font-bold text-yellow-600">${data.stats.review}</p></div>
+                    <div class="bg-white p-4 rounded-lg border"><h3>Accepted</h3><p class="text-2xl font-bold text-green-600">${data.stats.accepted}</p></div>
+                </div>
+                <div class="space-y-6 mt-6">${(data.list || []).map(renderConsultantOpportunityCard).join('')}</div>`;
+        }
+
+        async function applyForJob(jobId) {
+            await fetch('/consultant/api/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jobId: jobId })
+            });
+            renderConsultantOpportunitiesPage();
+        }
+        window.onload = renderConsultantOpportunitiesPage;
+    </script>
+</body>
+</html>

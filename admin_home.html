@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Home</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-main: #F8F9FA; --sidebar-bg: #ffffff; --sidebar-active-bg: #212529; --card-bg: #ffffff; --text-primary: #212529; --text-secondary: #6c757d; --border-color: #dee2e6; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-primary); }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; } @keyframes fadeIn { to { opacity: 1; } }
+        .dashboard { display: flex; height: 100vh; }
+        .sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; }
+        .sidebar-header { padding: 1.5rem; font-size: 1.25rem; font-weight: 600; }
+        .sidebar-nav { flex-grow: 1; padding: 1rem 0; }
+        .sidebar-nav .nav-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem; margin: 0 1rem 0.25rem; color: var(--text-secondary); text-decoration: none; border-radius: 8px; font-weight: 500; }
+        .sidebar-nav .nav-item:hover { background: #f1f3f5; color: var(--text-primary); }
+        .sidebar-nav .nav-item.active { background: var(--sidebar-active-bg); color: white; }
+        .sidebar-nav .nav-item i { font-size: 1rem; width: 20px; text-align: center; }
+        .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border-color); }
+        .stat-card-info h3 { font-size: 0.875rem; color: var(--text-secondary); }
+        .stat-card-info p { font-size: 2rem; font-weight: 700; }
+        .stat-card-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+        .leaderboard-modal { display: none; position: fixed; z-index: 1050; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); -webkit-animation-name: fadeIn; animation-name: fadeIn; -webkit-animation-duration: 0.4s; animation-duration: 0.4s; }
+        .leaderboard-modal-content { background-color: #fefefe; margin: 10% auto; padding: 24px; border: 1px solid #888; width: 90%; max-width: 500px; border-radius: 10px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2); -webkit-animation-name: slideIn; animation-name: slideIn; -webkit-animation-duration: 0.4s; animation-duration: 0.4s }
+        .leaderboard-modal-content h2 { font-size: 1.5rem; font-weight: 600; }
+        .leaderboard-modal-content ol { list-style-type: decimal; padding-left: 2rem; margin-top: 1rem; }
+        .leaderboard-modal-content li { padding: 0.5rem 0; border-bottom: 1px solid #eee; }
+        .leaderboard-modal-content li:last-child { border-bottom: none; }
+        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close-button:hover, .close-button:focus { color: black; text-decoration: none; cursor: pointer; }
+        @-webkit-keyframes slideIn { from {top: -300px; opacity: 0} to {top: 0; opacity: 1} }
+        @keyframes slideIn { from {margin-top: -5%; opacity: 0} to {margin-top: 10%; opacity: 1} }
+    </style>
+</head>
+<body>
+    <div id="admin-dashboard-container" class="dashboard">
+        <div class="sidebar" id="admin-sidebar">
+            <div class="sidebar-header"><span>Admin Portal</span></div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="/admin/home" class="nav-item active"><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="/admin/employees" class="nav-item"><i class="fas fa-users"></i> <span>Employees</span></a></li>
+                    <li><a href="/admin/opportunities" class="nav-item"><i class="fas fa-briefcase"></i> <span>Opportunities</span></a></li>
+                    <li><a href="/admin/reports" class="nav-item"><i class="fas fa-chart-pie"></i> <span>Reports</span></a></li>
+                    <li><a href="/admin/monitor" class="nav-item"><i class="fas fa-tachometer-alt"></i> <span>Monitor</span></a></li>
+                    <li><a href="/admin/chatbot" class="nav-item"><i class="fas fa-comments"></i> <span>Chatbot</span></a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="/logout" class="nav-item"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
+            </div>
+        </div>
+        <main class="main-content" id="admin-content-area"></main>
+    </div>
+    <div id="leaderboardModal" class="leaderboard-modal">
+        <div class="leaderboard-modal-content">
+            <span class="close-button">&times;</span>
+            <h2><i class="fas fa-trophy text-yellow-500"></i> Top Consultants</h2>
+            <ol id="leaderboardList" class="space-y-2"></ol>
+        </div>
+    </div>
+    <script>
+        let charts = {};
+        function destroyCharts() { Object.values(charts).forEach(chart => chart && chart.destroy()); charts = {}; }
+
+        function renderAdminCharts(data) {
+            destroyCharts();
+            const chartData = data.charts;
+            const CHART_DEFAULTS = { doughnut: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { position: 'bottom', labels: { padding: 15, boxWidth: 12, font: { size: 12 } } } } } };
+            
+            if (document.getElementById('employeeDistributionChart')) {
+                const empDistData = {
+                    labels: [`Active: ${chartData.employeeDistribution.active}`, `Bench: ${chartData.employeeDistribution.bench}`],
+                    datasets: [{ 
+                        data: [chartData.employeeDistribution.active, chartData.employeeDistribution.bench], 
+                        backgroundColor: ['#16a34a', '#f97316'], 
+                        borderWidth: 0
+                    }]
+                };
+                charts.empDist = new Chart(document.getElementById('employeeDistributionChart').getContext('2d'), { type: 'doughnut', data: empDistData, options: CHART_DEFAULTS.doughnut });
+            }
+
+            // +++ RESTORED CHART RENDERING LOGIC +++
+            if (document.getElementById('trainingStatusChart')) {
+                const trainingStatusData = {
+                    labels: [`Completed: ${chartData.trainingStatus.completed}`, `In Progress: ${chartData.trainingStatus.inProgress}`, `Not Started: ${chartData.trainingStatus.notStarted}`],
+                    datasets: [{
+                        data: [chartData.trainingStatus.completed, chartData.trainingStatus.inProgress, chartData.trainingStatus.notStarted],
+                        backgroundColor: ['#16a34a', '#facc15', '#9ca3af'],
+                        borderWidth: 0
+                    }]
+                };
+                charts.trainingStatus = new Chart(document.getElementById('trainingStatusChart').getContext('2d'), { type: 'doughnut', data: trainingStatusData, options: CHART_DEFAULTS.doughnut });
+            }
+        }
+
+        async function renderAdminDashboard() {
+            const adminContentArea = document.getElementById('admin-content-area');
+            adminContentArea.innerHTML = `<div class="p-8 text-center text-gray-500">Loading dashboard...</div>`;
+            try {
+                const response = await fetch('/admin/api/dashboard-stats');
+                if (!response.ok) throw new Error('Failed to fetch dashboard data');
+                const data = await response.json();
+                const { homeStats } = data;
+                adminContentArea.innerHTML = `
+                    <div class="fade-in">
+                        <header class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold">Admin Dashboard</h1>
+                                <p class="text-gray-500">Overview of pool consultant management system</p>
+                            </div>
+                            <div id="leaderboardIcon" class="p-2 cursor-pointer text-gray-500 hover:text-yellow-500 transition-colors duration-200">
+                                <i class="fas fa-trophy fa-2x" title="Show Leaderboard"></i>
+                            </div>
+                        </header>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="bg-white p-6 rounded-lg border flex justify-between items-center"><div class="stat-card-info"><h3>Total Employees</h3><p class="text-blue-600">${homeStats.totalEmployees}</p></div><div class="stat-card-icon bg-blue-100 text-blue-600"><i class="fas fa-users"></i></div></div>
+                            <div class="bg-white p-6 rounded-lg border flex justify-between items-center"><div class="stat-card-info"><h3>Active Consultants</h3><p class="text-green-600">${homeStats.activeProjects}</p></div><div class="stat-card-icon bg-green-100 text-green-600"><i class="fas fa-tasks"></i></div></div>
+                            <div class="bg-white p-6 rounded-lg border flex justify-between items-center"><div class="stat-card-info"><h3>Open Opportunities</h3><p class="text-purple-600">${homeStats.openOpportunities}</p></div><div class="stat-card-icon bg-purple-100 text-purple-600"><i class="fas fa-briefcase"></i></div></div>
+                            <div class="bg-white p-6 rounded-lg border flex justify-between items-center"><div class="stat-card-info"><h3>Total Applications</h3><p class="text-orange-600">${homeStats.totalApplications}</p></div><div class="stat-card-icon bg-orange-100 text-orange-500"><i class="fas fa-file-alt"></i></div></div>
+                        </div>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                            <div class="bg-white p-6 rounded-lg border">
+                                <h3 class="text-lg font-semibold">Employee Distribution</h3>
+                                <p class="text-sm text-gray-500 mb-2">Active vs Bench</p>
+                                <div class="h-80 mt-4"><canvas id="employeeDistributionChart"></canvas></div>
+                            </div>
+                            <div class="bg-white p-6 rounded-lg border">
+                                <h3 class="text-lg font-semibold">Training Status</h3>
+                                <p class="text-sm text-gray-500 mb-2">Overall training progress</p>
+                                <div class="h-80 mt-4"><canvas id="trainingStatusChart"></canvas></div>
+                            </div>
+                            <div class="bg-white p-6 rounded-lg border">
+                                <h3 class="text-lg font-semibold mb-4">Recent Activities</h3>
+                                <div class="space-y-3 text-sm">
+                                    <div class="flex items-center gap-4 py-2 border-b"><div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0"><i class="fas fa-user-plus"></i></div><p>A new consultant, <strong>Arjun</strong>, was added to the AI/ML pool.</p></div>
+                                    <div class="flex items-center gap-4 py-2 border-b"><div class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0"><i class="fas fa-briefcase"></i></div><p>You posted a new opportunity: <strong>Cybersecurity Analyst</strong>.</p></div>
+                                    <div class="flex items-center gap-4 py-2"><div class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0"><i class="fas fa-check"></i></div><p><strong>Priya's</strong> application for Product Manager was accepted.</p></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                setTimeout(() => renderAdminCharts(data), 50);
+            } catch (error) {
+                adminContentArea.innerHTML = `<div class="p-8 text-center text-red-500">Error loading dashboard. Please try again later.</div>`;
+                console.error("Error fetching dashboard data:", error);
+            }
+        }
+        
+        window.onload = function() {
+            renderAdminDashboard();
+            const modal = document.getElementById('leaderboardModal');
+            const closeButton = document.querySelector('.close-button');
+            const leaderboardList = document.getElementById('leaderboardList');
+            document.body.addEventListener('click', function(event) {
+                if (event.target.closest('#leaderboardIcon')) {
+                    leaderboardList.innerHTML = '<li>Loading...</li>';
+                    modal.style.display = 'block';
+                    fetch('/admin/api/leaderboard')
+                        .then(response => response.json())
+                        .then(data => {
+                            leaderboardList.innerHTML = ''; 
+                            if (data.error) {
+                                leaderboardList.innerHTML = `<li>${data.error}</li>`;
+                            } else if (data.length === 0) {
+                                leaderboardList.innerHTML = '<li>No data available yet.</li>';
+                            } else {
+                                data.forEach(consultant => {
+                                    const listItem = document.createElement('li');
+                                    listItem.innerHTML = `${consultant.name} - <strong>${consultant.score} points</strong>`;
+                                    leaderboardList.appendChild(listItem);
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error fetching leaderboard:', error);
+                            leaderboardList.innerHTML = '<li>Could not load leaderboard.</li>';
+                        });
+                }
+            });
+            closeButton.onclick = () => { modal.style.display = 'none'; };
+            window.onclick = (event) => {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            };
+        };
+    </script>
+</body>
+</html>

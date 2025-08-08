@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Reports</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-main: #F8F9FA; --sidebar-bg: #ffffff; --sidebar-active-bg: #212529; --card-bg: #ffffff; --text-primary: #212529; --border-color: #dee2e6; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); }
+        .spinner { width: 20px; height: 20px; border: 3px solid rgba(0,0,0,0.1); border-left-color: var(--text-primary); border-radius: 50%; animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+        .dashboard { display: flex; height: 100vh; }
+        .sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; }
+        .sidebar-header { padding: 1.5rem; font-size: 1.25rem; font-weight: 600; }
+        .sidebar-nav { flex-grow: 1; padding: 1rem 0; }
+        .sidebar-nav .nav-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem; margin: 0 1rem 0.25rem; color: #6c757d; text-decoration: none; border-radius: 8px; font-weight: 500; }
+        .sidebar-nav .nav-item:hover { background: #f1f3f5; }
+        .sidebar-nav .nav-item.active { background: var(--sidebar-active-bg); color: white; }
+        .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border-color); }
+        .form-input { width: 100%; background-color: #F3F4F6; border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem 1rem; }
+        /* Style to render AI response formatting */
+        #ai-summary-content { white-space: pre-wrap; }
+        #ai-summary-content h3 { font-size: 1.1em; font-weight: 600; margin-top: 0.5em; }
+        #ai-summary-content ul { list-style-type: disc; padding-left: 1.5em; }
+    </style>
+</head>
+<body>
+    <div id="admin-dashboard-container" class="dashboard">
+        <div class="sidebar" id="admin-sidebar">
+            <div class="sidebar-header"><span>Admin Portal</span></div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="/admin/home" class="nav-item"><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="/admin/employees" class="nav-item"><i class="fas fa-users"></i> <span>Employees</span></a></li>
+                    <li><a href="/admin/opportunities" class="nav-item"><i class="fas fa-briefcase"></i> <span>Opportunities</span></a></li>
+                    <li><a href="/admin/reports" class="nav-item active"><i class="fas fa-chart-pie"></i> <span>Reports</span></a></li>
+                    <li><a href="/admin/monitor" class="nav-item"><i class="fas fa-tachometer-alt"></i> <span>Monitor</span></a></li>
+                    <li><a href="/admin/chatbot" class="nav-item"><i class="fas fa-comments"></i> <span>Chatbot</span></a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="/logout" class="nav-item"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
+            </div>
+        </div>
+        <main class="main-content" id="admin-content-area"></main>
+    </div>
+    <script>
+        let charts = {};
+        let allEmployeesData = [];
+        const adminContentArea = document.getElementById('admin-content-area');
+
+        async function renderAdminReportsPage() {
+            adminContentArea.innerHTML = `<div class="p-8 text-center text-gray-500">Loading filters...</div>`;
+            const response = await fetch('/admin/api/reports');
+            const data = await response.json();
+            allEmployeesData = data.employees;
+            const domains = ["All Departments", ...new Set(allEmployeesData.map(e => e.domain))];
+            
+            adminContentArea.innerHTML = `
+                <header><h1>Performance Reports</h1><p class="text-gray-500">Generate visual reports with AI-powered summaries</p></header>
+                <div class="bg-white p-6 rounded-lg border mt-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div>
+                            <label for="department-filter" class="block text-sm font-medium mb-1">Filter by Department</label>
+                            <select id="department-filter" onchange="updateIndividualFilter()" class="form-input">${domains.map(d => `<option value="${d}">${d}</option>`).join('')}</select>
+                        </div>
+                        <div>
+                            <label for="individual-filter" class="block text-sm font-medium mb-1">Filter by Individual</label>
+                            <select id="individual-filter" class="form-input"><option value="All Consultants">All Consultants</option></select>
+                        </div>
+                        <button onclick="generateAdminReport()" class="bg-gray-800 text-white font-semibold py-2.5 rounded-lg hover:bg-gray-900">Generate Report</button>
+                    </div>
+                </div>
+                <div id="report-content" class="mt-6">
+                    <div class="text-center text-gray-500 p-8 bg-gray-50 rounded-lg"><i class="fas fa-chart-pie fa-2x mb-4"></i><p>Please select filters and click "Generate Report".</p></div>
+                </div>`;
+            updateIndividualFilter();
+        }
+
+        function updateIndividualFilter() {
+            const selectedDomain = document.getElementById('department-filter').value;
+            const individualFilter = document.getElementById('individual-filter');
+            const filtered = selectedDomain === 'All Departments' ? allEmployeesData : allEmployeesData.filter(e => e.domain === selectedDomain);
+            individualFilter.innerHTML = `<option value="All Consultants">All Consultants</option>${filtered.map(e => `<option value="${e.name}">${e.name}</option>`).join('')}`;
+        }
+        
+        function generateAdminReport() {
+            const reportContent = document.getElementById('report-content');
+            reportContent.innerHTML = `<div class="text-center p-8"><div class="spinner mx-auto"></div><p>Generating report...</p></div>`;
+            
+            const selectedDomain = document.getElementById('department-filter').value;
+            const selectedIndividual = document.getElementById('individual-filter').value;
+            
+            let filtered = [...allEmployeesData];
+            if (selectedDomain !== 'All Departments') filtered = filtered.filter(e => e.domain === selectedDomain);
+            if (selectedIndividual !== 'All Consultants') filtered = filtered.filter(e => e.name === selectedIndividual);
+
+            if (filtered.length === 0) {
+                reportContent.innerHTML = `<div class="text-center text-gray-500 p-8 bg-gray-50 rounded-lg">No consultants match filters.</div>`;
+                return;
+            }
+
+            const avgAttendance = (filtered.reduce((a, e) => a + e.attendance_score, 0) / filtered.length).toFixed(1);
+            const avgTraining = (filtered.reduce((a, e) => a + e.training_score, 0) / filtered.length).toFixed(1);
+            
+            reportContent.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-white p-4 rounded-lg border"><h3>Avg. Attendance</h3><p class="text-3xl font-bold text-green-600">${avgAttendance}%</p></div>
+                    <div class="bg-white p-4 rounded-lg border"><h3>Avg. Training</h3><p class="text-3xl font-bold text-blue-600">${avgTraining}%</p></div>
+                </div>
+                <div class="bg-white p-4 rounded-lg border mb-6"><h3 class="font-semibold">Performance Comparison</h3><div class="h-80 mt-4"><canvas id="performanceReportChart"></canvas></div></div>
+                <div class="bg-white p-6 rounded-lg border">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-semibold text-lg flex items-center gap-2"><i class="fas fa-robot text-blue-600"></i> GenAI Summary</h3>
+                        <button onclick='generateAISummary()' class="bg-blue-600 text-white font-semibold px-4 py-2 text-sm rounded-lg hover:bg-blue-700">Generate Analysis</button>
+                    </div>
+                    <div id="ai-summary-content" class="prose prose-sm max-w-none mt-4 text-gray-600 bg-gray-50 p-4 rounded-md min-h-[100px]">Click "Generate Analysis" for an AI-powered summary.</div>
+                </div>`;
+            renderReportCharts(filtered);
+        }
+
+        async function generateAISummary() {
+            document.getElementById('ai-summary-content').innerHTML = `<div class="flex items-center gap-2"><div class="spinner w-5 h-5 border-2"></div><span>Analyzing data...</span></div>`;
+            const selectedDomain = document.getElementById('department-filter').value;
+            const selectedIndividual = document.getElementById('individual-filter').value;
+            
+            let filtered = [...allEmployeesData];
+            if (selectedDomain !== 'All Departments') filtered = filtered.filter(e => e.domain === selectedDomain);
+            if (selectedIndividual !== 'All Consultants') filtered = filtered.filter(e => e.name === selectedIndividual);
+            
+            const report_data = JSON.stringify(filtered.map(e => ({ name: e.name, attendance: e.attendance_score, training: e.training_score })));
+            const response = await fetch('/admin/api/genai-summary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ report_data }) });
+            const data = await response.json();
+            // Use innerText to preserve formatting from the AI
+            document.getElementById('ai-summary-content').innerText = data.summary;
+        }
+
+        function destroyCharts() { Object.values(charts).forEach(c => c && c.destroy()); charts = {}; }
+
+        function renderReportCharts(filtered) {
+            destroyCharts();
+            const CHART_DEFAULTS = { bar: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } } } };
+            const labels = filtered.map(e => e.name);
+            charts.performance = new Chart(document.getElementById('performanceReportChart').getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Attendance', data: filtered.map(e => e.attendance_score), backgroundColor: '#34d399', borderRadius: 4 },
+                        { label: 'Training', data: filtered.map(e => e.training_score), backgroundColor: '#60a5fa', borderRadius: 4 }
+                    ]
+                },
+                options: CHART_DEFAULTS.bar
+            });
+        }
+        window.onload = renderAdminReportsPage;
+    </script>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Opportunities</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-main: #F8F9FA; --sidebar-bg: #ffffff; --sidebar-active-bg: #212529; --card-bg: #ffffff; --text-primary: #212529; --text-secondary: #6c757d; --border-color: #dee2e6; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); }
+        .dashboard { display: flex; height: 100vh; }
+        .sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; }
+        .sidebar-header { padding: 1.5rem; font-size: 1.25rem; font-weight: 600; }
+        .sidebar-nav { flex-grow: 1; padding: 1rem 0; }
+        .sidebar-nav .nav-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem; margin: 0 1rem 0.25rem; color: #6c757d; text-decoration: none; border-radius: 8px; font-weight: 500; }
+        .sidebar-nav .nav-item:hover { background: #f1f3f5; }
+        .sidebar-nav .nav-item.active { background: var(--sidebar-active-bg); color: white; }
+        .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border-color); }
+        .form-input, .form-textarea { width: 100%; background-color: #F3F4F6; border-radius: 8px; padding: 0.75rem 1rem; border: 1px solid var(--border-color); }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; opacity: 0; transition: opacity 0.3s ease; }
+        .modal-overlay.active { opacity: 1; display: flex; }
+        .modal-content { background-color: white; padding: 2rem; border-radius: 12px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; transform: scale(0.95); transition: transform 0.3s ease; }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+        
+        /* +++ NEW STYLES FOR APPLICANT LIST +++ */
+        .applicants-container { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-in-out; }
+        .applicants-container.expanded { max-height: 500px; /* Adjust as needed */ }
+        .applicant-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-top: 1px solid var(--border-color); }
+    </style>
+</head>
+<body>
+    <div id="admin-dashboard-container" class="dashboard">
+        <div class="sidebar" id="admin-sidebar">
+            <div class="sidebar-header"><span>Admin Portal</span></div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="/admin/home" class="nav-item"><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="/admin/employees" class="nav-item"><i class="fas fa-users"></i> <span>Employees</span></a></li>
+                    <li><a href="/admin/opportunities" class="nav-item active"><i class="fas fa-briefcase"></i> <span>Opportunities</span></a></li>
+                    <li><a href="/admin/reports" class="nav-item"><i class="fas fa-chart-pie"></i> <span>Reports</span></a></li>
+                    <li><a href="/admin/monitor" class="nav-item"><i class="fas fa-tachometer-alt"></i> <span>Monitor</span></a></li>
+                    <li><a href="/admin/chatbot" class="nav-item"><i class="fas fa-comments"></i> <span>Chatbot</span></a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="/logout" class="nav-item"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
+            </div>
+        </div>
+        <main class="main-content" id="admin-content-area"></main>
+    </div>
+    <div id="modal-container"></div>
+    <script>
+        const adminContentArea = document.getElementById('admin-content-area');
+        const modalContainer = document.getElementById('modal-container');
+
+        function renderOpportunityCard(job) {
+            const statusColor = job.status === 'Open' ? 'text-blue-700 bg-blue-100' : job.status === 'In Progress' ? 'text-yellow-700 bg-yellow-100' : 'text-gray-700 bg-gray-100';
+            const hasApplications = job.application_count > 0;
+            return `
+                <div class="bg-white p-4 rounded-lg border">
+                    <div class="flex justify-between items-start cursor-pointer" onclick="${hasApplications ? `toggleApplicants(this, '${job._id.$oid}')` : ''}">
+                        <div>
+                            <h3 class="text-lg font-bold">${job.title}</h3>
+                            <p class="text-sm text-gray-600">${job.company}</p>
+                        </div>
+                        <div class="text-right">
+                           <span class="text-sm font-semibold ${statusColor} px-3 py-1 rounded-full">${job.status}</span>
+                           <p class="text-xs text-gray-500 mt-1">${job.application_count} Application(s)</p>
+                        </div>
+                    </div>
+                    <p class="my-3 text-sm text-gray-700">${job.description}</p>
+                    <div class="flex flex-wrap gap-2 text-xs">${(job.skills || []).map(skill => `<span class="bg-gray-200 px-2 py-1 rounded">${skill}</span>`).join('')}</div>
+                    <div id="applicants-${job._id.$oid}" class="applicants-container mt-4"></div>
+                </div>`;
+        }
+        
+        async function toggleApplicants(element, jobId) {
+            const container = document.getElementById(`applicants-${jobId}`);
+            if (container.classList.contains('expanded')) {
+                container.classList.remove('expanded');
+                return;
+            }
+            
+            // Close any other expanded lists
+            document.querySelectorAll('.applicants-container.expanded').forEach(el => el.classList.remove('expanded'));
+
+            container.innerHTML = `<div class="text-center text-sm text-gray-500 py-2">Loading applicants...</div>`;
+            container.classList.add('expanded');
+
+            const response = await fetch(`/admin/api/opportunities/${jobId}/applications`);
+            const applicants = await response.json();
+
+            if (applicants.length === 0) {
+                container.innerHTML = `<div class="text-center text-sm text-gray-500 py-2">No applicants yet.</div>`;
+                return;
+            }
+
+            container.innerHTML = applicants.map(app => {
+                let buttons = '';
+                if (app.status === 'Under Consideration') {
+                    buttons = `
+                        <button onclick="updateStatus('${app._id.$oid}', 'Accepted', '${jobId}')" class="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-md hover:bg-green-600">Accept</button>
+                        <button onclick="updateStatus('${app._id.$oid}', 'Rejected', '${jobId}')" class="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-md hover:bg-red-600">Decline</button>
+                    `;
+                } else {
+                    const statusColor = app.status === 'Accepted' ? 'text-green-600' : 'text-red-600';
+                    buttons = `<span class="font-bold text-xs ${statusColor}">${app.status}</span>`;
+                }
+                return `
+                    <div class="applicant-row">
+                        <div>
+                            <p class="font-semibold text-sm">${app.consultant_name}</p>
+                            <p class="text-xs text-gray-500">${app.consultant_role}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            ${buttons}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function updateStatus(applicationId, newStatus, jobId) {
+            await fetch('/admin/api/applications/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ applicationId, status: newStatus })
+            });
+            // Refresh just the applicant list for that job
+            const container = document.getElementById(`applicants-${jobId}`);
+            container.classList.remove('expanded');
+            toggleApplicants(container.previousElementSibling, jobId);
+            // Also refresh the main page to update the top stats
+            renderOpportunitiesPage();
+        }
+
+        async function renderOpportunitiesPage() {
+            adminContentArea.innerHTML = `<div class="p-8 text-center text-gray-500">Loading opportunities...</div>`;
+            const response = await fetch('/admin/api/opportunities');
+            const data = await response.json();
+            const { stats, jobs } = data;
+            adminContentArea.innerHTML = `
+                <div>
+                    <header class="flex justify-between items-center mb-4">
+                        <div><h1>Opportunities Management</h1><p class="text-gray-500">Manage job opportunities and applications</p></div>
+                        <button onclick="openAddOpportunityModal()" class="bg-gray-800 text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2"><i class="fas fa-plus"></i> Add Opportunity</button>
+                    </header>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="bg-white p-4 rounded-lg border"><h3>Total Opportunities</h3><p class="text-2xl font-bold text-blue-600">${stats.total}</p></div>
+                        <div class="bg-white p-4 rounded-lg border"><h3>Total Applications</h3><p class="text-2xl font-bold text-gray-600">${stats.totalApplications}</p></div>
+                        <div class="bg-white p-4 rounded-lg border"><h3>Accepted</h3><p class="text-2xl font-bold text-green-600">${stats.accepted}</p></div>
+                        <div class="bg-white p-4 rounded-lg border"><h3>Under Review</h3><p class="text-2xl font-bold text-yellow-600">${stats.underReview}</p></div>
+                    </div>
+                    <div id="opportunity-list-container" class="mt-6 space-y-4">${jobs.map(renderOpportunityCard).join('')}</div>
+                </div>`;
+        }
+
+        function openModal(content) {
+            modalContainer.innerHTML = `<div class="modal-overlay active" onclick="closeModal(event)"><div class="modal-content">${content}</div></div>`;
+        }
+        function closeModal(event) {
+            if (!event || event.target === event.currentTarget) { modalContainer.innerHTML = ''; }
+        }
+
+        function openAddOpportunityModal() {
+            const modalContent = `
+                <div class="flex justify-between items-center border-b pb-4 mb-4"><h2 class="text-xl font-bold">Add New Opportunity</h2><button onclick="closeModal()" class="text-gray-500 text-2xl">&times;</button></div>
+                <form id="add-opportunity-form" onsubmit="addOpportunity(event)">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label class="block text-sm">Title</label><input type="text" name="title" class="form-input" required></div>
+                        <div><label class="block text-sm">Company</label><input type="text" name="company" class="form-input" required></div>
+                        <div><label class="block text-sm">Location</label><input type="text" name="location" class="form-input" required></div>
+                        <div><label class="block text-sm">Salary Range</label><input type="text" name="salary" class="form-input" required></div>
+                        <div><label class="block text-sm">Experience</label><input type="text" name="experience" class="form-input" required></div>
+                        <div><label class="block text-sm">Domain</label><input type="text" name="domain" class="form-input" required></div>
+                        <div><label class="block text-sm">Status</label>
+                           <select name="status" class="form-input">
+                               <option value="Open">Open</option>
+                               <option value="In Progress">In Progress</option>
+                               <option value="Completed">Completed</option>
+                               <option value="Cancelled">Cancelled</option>
+                           </select>
+                        </div>
+                    </div>
+                    <div class="mt-4"><label class="block text-sm">Description</label><textarea name="description" class="form-textarea" rows="3" required></textarea></div>
+                    <div class="mt-4"><label class="block text-sm">Skills (comma-separated)</label><input type="text" name="skills" class="form-input" required></div>
+                    <div class="flex justify-end gap-4 mt-6">
+                        <button type="button" onclick="closeModal()" class="border font-semibold px-4 py-2 rounded-lg">Cancel</button>
+                        <button type="submit" class="bg-gray-800 text-white font-semibold px-4 py-2 rounded-lg">Add Opportunity</button>
+                    </div>
+                </form>`;
+            openModal(modalContent);
+        }
+
+        async function addOpportunity(event) {
+            event.preventDefault();
+            const form = event.target;
+            const newJob = {
+                title: form.title.value, company: form.company.value, description: form.description.value,
+                location: form.location.value, salary: form.salary.value, experience: form.experience.value,
+                domain: form.domain.value, status: form.status.value,
+                skills: form.skills.value.split(',').map(s => s.trim())
+            };
+            await fetch('/admin/api/opportunities', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newJob)
+            });
+            closeModal();
+            renderOpportunitiesPage();
+        }
+        window.onload = renderOpportunitiesPage;
+    </script>
+</body>
+</html>

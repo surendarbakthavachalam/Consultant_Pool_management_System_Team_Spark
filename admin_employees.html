@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Employees</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-main: #F8F9FA; --sidebar-bg: #ffffff; --sidebar-active-bg: #212529; --card-bg: #ffffff; --text-primary: #212529; --text-secondary: #6c757d; --border-color: #dee2e6; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); }
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; } @keyframes fadeIn { to { opacity: 1; } }
+        .dashboard { display: flex; height: 100vh; }
+        .sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; }
+        .sidebar-header { padding: 1.5rem; font-size: 1.25rem; font-weight: 600; }
+        .sidebar-nav { flex-grow: 1; padding: 1rem 0; }
+        .sidebar-nav .nav-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem; margin: 0 1rem 0.25rem; color: var(--text-secondary); text-decoration: none; border-radius: 8px; font-weight: 500; }
+        .sidebar-nav .nav-item:hover { background: #f1f3f5; }
+        .sidebar-nav .nav-item.active { background: var(--sidebar-active-bg); color: white; }
+        .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border-color); }
+        .employee-avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: white; flex-shrink: 0; }
+        .badge { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; opacity: 0; transition: opacity 0.3s ease; }
+        .modal-overlay.active { opacity: 1; display: flex; }
+        .modal-content { background-color: white; padding: 2rem; border-radius: 12px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; transform: scale(0.95); transition: transform 0.3s ease; }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+    </style>
+</head>
+<body>
+    <div id="admin-dashboard-container" class="dashboard">
+        <div class="sidebar" id="admin-sidebar">
+            <div class="sidebar-header"><span>Admin Portal</span></div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li><a href="/admin/home" class="nav-item"><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="/admin/employees" class="nav-item active"><i class="fas fa-users"></i> <span>Employees</span></a></li>
+                    <li><a href="/admin/opportunities" class="nav-item"><i class="fas fa-briefcase"></i> <span>Opportunities</span></a></li>
+                    <li><a href="/admin/reports" class="nav-item"><i class="fas fa-chart-pie"></i> <span>Reports</span></a></li>
+                    <li><a href="/admin/monitor" class="nav-item"><i class="fas fa-tachometer-alt"></i> <span>Monitor</span></a></li>
+                    <li><a href="/admin/chatbot" class="nav-item"><i class="fas fa-comments"></i> <span>Chatbot</span></a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="/logout" class="nav-item"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
+            </div>
+        </div>
+        <main class="main-content" id="admin-content-area"></main>
+    </div>
+    <div id="modal-container"></div>
+    <script>
+        const adminContentArea = document.getElementById('admin-content-area');
+        const modalContainer = document.getElementById('modal-container');
+        let allEmployees = [];
+
+        function renderEmployeeCard(employee) {
+            const statusColors = { Active: 'bg-green-100 text-green-800', Bench: 'bg-orange-100 text-orange-800' };
+            const avatarColors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-red-500'];
+            const avatarColor = avatarColors[employee.name.length % avatarColors.length];
+            return `
+                <div class="bg-white p-4 rounded-lg border">
+                    <div class="flex flex-wrap gap-4 items-center justify-between">
+                        
+                        <!-- Left Section: Avatar, Name, Role -->
+                        <div class="flex items-center gap-4">
+                            <div class="employee-avatar ${avatarColor}">${employee.initials}</div>
+                            <div>
+                                <h3 class="text-lg font-semibold">${employee.name}</h3>
+                                <p class="text-gray-500 text-sm">${employee.role}</p>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="badge ${statusColors[employee.status]}">${employee.status}</span>
+                                    <span class="badge bg-gray-100 text-gray-700">Grade ${employee.grade}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Center Section: Contact Info -->
+                        <div class="text-sm text-gray-600 space-y-2">
+                            <div><i class="fas fa-envelope w-5 mr-1 text-gray-400"></i>${employee.email}</div>
+                            <div><i class="fas fa-phone w-5 mr-1 text-gray-400"></i>${employee.phone}</div>
+                        </div>
+
+                        <!-- Right Section: Button -->
+                        <div>
+                            <button onclick="openEmployeeDetailsModal('${employee._id.$oid}')" class="border border-gray-300 rounded-lg px-4 py-2 text-sm font-semibold hover:bg-gray-50 whitespace-nowrap">View Details</button>
+                        </div>
+
+                    </div>
+                </div>`;
+        }
+
+        async function renderEmployeePage() {
+            adminContentArea.innerHTML = `<div class="p-8 text-center text-gray-500">Loading employees...</div>`;
+            try {
+                const response = await fetch('/admin/api/employees');
+                const data = await response.json();
+                allEmployees = data.employees;
+                const { employeePageStats } = data;
+                adminContentArea.innerHTML = `
+                    <div class="fade-in">
+                        <header><h1>Employee Management</h1><p class="text-gray-500">Manage and monitor consultant performance</p></header>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-4">
+                            <div class="bg-white p-4 rounded-lg border"><h3>Total Employees</h3><p class="text-2xl font-bold text-blue-600">${employeePageStats.totalEmployees}</p></div>
+                            <div class="bg-white p-4 rounded-lg border"><h3>Active Projects</h3><p class="text-2xl font-bold text-green-600">${employeePageStats.activeProjects}</p></div>
+                            <div class="bg-white p-4 rounded-lg border"><h3>Bench Resources</h3><p class="text-2xl font-bold text-orange-600">${employeePageStats.benchResources}</p></div>
+                            <div class="bg-white p-4 rounded-lg border"><h3>Avg. Attendance</h3><p class="text-2xl font-bold text-gray-600">${employeePageStats.avgAttendance}</p></div>
+                        </div>
+                        <div class="mt-6 space-y-4" id="employee-list-container">
+                            ${allEmployees.map(renderEmployeeCard).join('')}
+                        </div>
+                    </div>`;
+            } catch (error) {
+                 adminContentArea.innerHTML = `<div class="p-8 text-center text-red-500">Error loading employees. Please ensure the server is running.</div>`;
+                 console.error("Error fetching employee data:", error);
+            }
+        }
+
+        function openModal(content) {
+            modalContainer.innerHTML = `<div class="modal-overlay active" onclick="closeModal(event)"><div class="modal-content">${content}</div></div>`;
+        }
+        function closeModal(event) {
+            if (event.target === event.currentTarget) { modalContainer.innerHTML = ''; }
+        }
+        function openEmployeeDetailsModal(employeeId) {
+            const employee = allEmployees.find(e => e._id.$oid === employeeId);
+            if (!employee) return;
+            const modalContent = `
+                <div class="flex justify-between items-center border-b pb-4 mb-4">
+                    <h2 class="text-xl font-bold">${employee.name}'s Details</h2>
+                    <button onclick="closeModal(event.currentTarget)" class="text-gray-500 text-2xl">&times;</button>
+                </div>
+                <div class="space-y-2 text-gray-700">
+                    <p><strong>Role:</strong> ${employee.role}</p>
+                    <p><strong>Domain:</strong> ${employee.domain}</p>
+                    <p><strong>Status:</strong> ${employee.status}</p>
+                    <p><strong>Current Project:</strong> ${employee.project}</p>
+                    <div class="pt-4 mt-4 border-t">
+                        <h4 class="font-semibold mb-2">Performance</h4>
+                        <p><strong>Attendance Score:</strong> ${employee.attendance_score}%</p>
+                        <p><strong>Training Score:</strong> ${employee.training_score}%</p>
+                    </div>
+                </div>`;
+            openModal(modalContent);
+        }
+        window.onload = renderEmployeePage;
+    </script>
+</body>
+</html>

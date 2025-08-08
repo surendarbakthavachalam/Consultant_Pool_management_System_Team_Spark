@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consultant Dashboard - Resume Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg-main: #F8F9FA; --sidebar-bg: #ffffff; --sidebar-active-bg: #212529; --card-bg: #ffffff; --border-color: #dee2e6; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); }
+        .dashboard { display: flex; min-height: 100vh; }
+        .sidebar { width: 250px; background: var(--sidebar-bg); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; }
+        .sidebar-header { padding: 1.5rem; font-size: 1.25rem; font-weight: 600; }
+        .sidebar-nav { flex-grow: 1; padding: 1rem 0; }
+        .sidebar-nav .nav-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1.5rem; margin: 0 1rem 0.25rem; color: #6c757d; text-decoration: none; border-radius: 8px; font-weight: 500; }
+        .sidebar-nav .nav-item:hover { background: #f1f3f5; }
+        .sidebar-nav .nav-item.active { background: var(--sidebar-active-bg); color: white; }
+        .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border-color); }
+        .form-input, .form-textarea { width: 100%; background-color: #F3F4F6; border-radius: 8px; padding: 0.75rem 1rem; border: 1px solid var(--border-color); }
+        .skill-tag { background-color: #e9ecef; padding: 0.25rem 0.75rem; border-radius: 4px; }
+        .spinner-animation { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <div class="sidebar-header"><span>Consultant Portal</span></div>
+            <nav class="sidebar-nav">
+                <ul>
+                   <li><a href="/consultant/home" class="nav-item"><i class="fas fa-home"></i> <span>Home</span></a></li>
+                    <li><a href="/consultant/training" class="nav-item"><i class="fas fa-graduation-cap"></i> <span>Training</span></a></li>
+                    <li><a href="/consultant/attendance" class="nav-item"><i class="fas fa-calendar-check"></i> <span>Attendance</span></a></li>
+                    <li><a href="/consultant/certifications" class="nav-item"><i class="fas fa-certificate"></i> <span>Certifications</span></a></li>
+                    <li><a href="/consultant/opportunities" class="nav-item"><i class="fas fa-briefcase"></i> <span>Opportunities</span></a></li>
+                     <li><a href="/consultant/resume-builder" class="nav-item active"><i class="fas fa-file-alt"></i> <span>Resume Builder</span></a></li>
+                    <li><a href="/consultant/chatbot" class="nav-item"><i class="fas fa-comments"></i> <span>Chatbot</span></a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="/logout"  class="nav-item"><i class="fas fa-sign-out-alt"></i> <span>Logout</span></a>
+            </div>
+        </div>
+        <main class="main-content" id="consultant-content-area"></main>
+    </div>
+    <script>
+        const consultantContentArea = document.getElementById('consultant-content-area');
+        
+        async function renderConsultantResumePage(editMode = false) {
+            consultantContentArea.innerHTML = `<div class="p-8 text-center text-gray-500">Loading Resume Data...</div>`;
+            const response = await fetch(window.location.origin + '/consultant/api/resume');
+            const resume = await response.json();
+
+            if (resume && !editMode) {
+                consultantContentArea.innerHTML = `
+                    <header class="flex justify-between items-center mb-4">
+                        <div><h1 class="text-2xl font-bold">Your Resume</h1><p class="text-gray-500">Review your saved information</p></div>
+                        <button onclick="renderConsultantResumePage(true)" class="bg-gray-800 text-white font-semibold px-4 py-2 rounded-lg"><i class="fas fa-edit"></i> Update Resume</button>
+                    </header>
+                    <div class="mt-6 bg-white p-8 rounded-lg border">
+                        <div class="text-center border-b pb-4 mb-6">
+                            <h2 class="text-3xl font-bold">${resume.personal.name}</h2>
+                            <p class="text-gray-600 mt-2">${resume.personal.email} | ${resume.personal.phone} | <a href="${resume.personal.linkedin}" target="_blank" class="text-blue-600 hover:underline">LinkedIn</a></p>
+                        </div>
+                        <div><h3 class="text-xl font-semibold border-b pb-2 mb-2">Summary</h3><p>${(resume.summary || "").replace(/\n/g, '<br>')}</p></div>
+                        <div class="mt-4"><h3 class="text-xl font-semibold border-b pb-2 mb-2">Experience</h3>${(resume.experience || []).map(exp => `<div><h4 class="font-bold">${exp.role} at ${exp.company}</h4><p class="text-sm text-gray-500">${exp.startDate} to ${exp.endDate}</p><ul class="list-disc list-inside">${(exp.description || '').split('\\n').map(line => `<li>${line}</li>`).join('')}</ul></div>`).join('')}</div>
+                        <div class="mt-4"><h3 class="text-xl font-semibold border-b pb-2 mb-2">Education</h3>${(resume.education || []).map(edu => `<div><h4 class="font-bold">${edu.degree} from ${edu.institution}</h4><p class="text-sm text-gray-500">${edu.year}</p></div>`).join('')}</div>
+                        <div class="mt-4"><h3 class="text-xl font-semibold border-b pb-2 mb-2">Skills</h3><div class="flex flex-wrap gap-2">${(resume.skills || []).map(skill => `<span class="skill-tag">${skill}</span>`).join('')}</div></div>
+                    </div>`;
+            } else {
+                consultantContentArea.innerHTML = `
+                    <header><h1>${resume ? 'Update Your Resume' : 'Build Your Resume'}</h1><p class="text-gray-500">Fill in the details below.</p></header>
+                    <form id="resume-form" onsubmit="handleResumeSubmit(event)" class="mt-4 space-y-4">
+                        <div class="bg-white p-4 rounded-lg border">
+                            <h3 class="font-semibold mb-2">Personal Information</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div><label class="block text-sm">Full Name</label><input name="name" type="text" class="form-input" value="${resume?.personal?.name || ''}" required></div>
+                                <div><label class="block text-sm">Email</label><input name="email" type="email" class="form-input" value="${resume?.personal?.email || ''}" required></div>
+                                <div><label class="block text-sm">Phone</label><input name="phone" type="tel" class="form-input" value="${resume?.personal?.phone || ''}" required></div>
+                                <div class="md:col-span-3"><label class="block text-sm">LinkedIn URL</label><input name="linkedin" type="url" class="form-input" value="${resume?.personal?.linkedin || ''}"></div>
+                            </div>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg border">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="font-semibold">Summary</h3>
+                                <button type="button" onclick="generateResumeSummary(this)" class="flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors">
+                                    <i class="fas fa-robot"></i> Generate with AI
+                                </button>
+                            </div>
+                            <textarea name="summary" class="form-textarea" rows="4" placeholder="Click 'Generate with AI' or write your own summary...">${resume?.summary || ''}</textarea>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg border"><h3 class="font-semibold mb-2">Experience</h3><div id="experience-container" class="space-y-4">${(resume?.experience || [{}]).map((exp, i) => renderExperienceForm(exp, i)).join('')}</div><button type="button" onclick="addExperienceSection()" class="text-sm font-semibold text-blue-600 mt-2">+ Add Experience</button></div>
+                        <div class="bg-white p-4 rounded-lg border"><h3 class="font-semibold mb-2">Education</h3><div id="education-container" class="space-y-4">${(resume?.education || [{}]).map((edu, i) => renderEducationForm(edu, i)).join('')}</div><button type="button" onclick="addEducationSection()" class="text-sm font-semibold text-blue-600 mt-2">+ Add Education</button></div>
+                        <div class="bg-white p-4 rounded-lg border"><h3 class="font-semibold mb-2">Skills (comma-separated)</h3><input name="skills" type="text" class="form-input" placeholder="e.g., React, Node.js, AWS" value="${(resume?.skills || []).join(', ')}"></div>
+                        <div class="flex justify-end gap-4">
+                            ${resume ? `<button type="button" onclick="renderConsultantResumePage(false)" class="border font-semibold px-6 py-2 rounded-lg">Cancel</button>` : ''}
+                            <button type="submit" class="bg-gray-800 text-white font-semibold px-6 py-2 rounded-lg">${resume ? 'Update Resume' : 'Save Resume'}</button>
+                        </div>
+                    </form>`;
+            }
+        }
+        
+        async function generateResumeSummary(button) {
+            const summaryTextarea = document.querySelector('textarea[name="summary"]');
+            const originalButtonHTML = button.innerHTML;
+            
+            // Show loading state
+            button.innerHTML = `<i class="fas fa-circle-notch spinner-animation"></i> Generating...`;
+            button.disabled = true;
+
+            try {
+                const response = await fetch(window.location.origin + '/consultant/api/resume/generate-summary', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.summary) {
+                    summaryTextarea.value = data.summary;
+                } else {
+                    summaryTextarea.value = "Sorry, there was an error generating the summary.";
+                }
+            } catch (error) {
+                console.error("Error generating AI summary:", error);
+                summaryTextarea.value = "An error occurred. Please try again.";
+            } finally {
+                // Restore button state
+                button.innerHTML = originalButtonHTML;
+                button.disabled = false;
+            }
+        }
+
+        function renderExperienceForm(exp = {}, index) { return `<div id="exp-${index}" class="space-y-2 border-t pt-2"><div class="grid grid-cols-2 gap-2"><input name="exp_role" type="text" class="form-input" placeholder="Role" value="${exp.role || ''}"><input name="exp_company" type="text" class="form-input" placeholder="Company" value="${exp.company || ''}"></div><div class="grid grid-cols-2 gap-2"><input name="exp_startDate" type="text" class="form-input" placeholder="Start Date (e.g., Jan 2022)" value="${exp.startDate || ''}"><input name="exp_endDate" type="text" class="form-input" placeholder="End Date (e.g., Present)" value="${exp.endDate || ''}"></div><textarea name="exp_description" class="form-textarea" placeholder="Description (one point per line)">${(exp.description || '').replace(/\\n/g, '\n')}</textarea></div>`; }
+        function addExperienceSection() { document.getElementById('experience-container').insertAdjacentHTML('beforeend', renderExperienceForm({}, document.querySelectorAll('[id^=exp-]').length)); }
+        function renderEducationForm(edu = {}, index) { return `<div id="edu-${index}" class="grid grid-cols-3 gap-2"><input name="edu_institution" type="text" class="form-input" placeholder="Institution" value="${edu.institution || ''}"><input name="edu_degree" type="text" class="form-input" placeholder="Degree" value="${edu.degree || ''}"><input name="edu_year" type="text" class="form-input" placeholder="Year" value="${edu.year || ''}"></div>`; }
+        function addEducationSection() { document.getElementById('education-container').insertAdjacentHTML('beforeend', renderEducationForm({}, document.querySelectorAll('[id^=edu-]').length)); }
+
+        async function handleResumeSubmit(event) {
+            event.preventDefault();
+            const form = document.getElementById('resume-form');
+            const formData = new FormData(form);
+            const resumeData = {
+                personal: { name: formData.get('name'), email: formData.get('email'), phone: formData.get('phone'), linkedin: formData.get('linkedin') },
+                summary: formData.get('summary'), experience: [], education: [],
+                skills: formData.get('skills').split(',').map(s => s.trim()).filter(Boolean)
+            };
+            formData.getAll('exp_role').forEach((role, i) => { if (role) resumeData.experience.push({ role, company: formData.getAll('exp_company')[i], startDate: formData.getAll('exp_startDate')[i], endDate: formData.getAll('exp_endDate')[i], description: formData.getAll('exp_description')[i].replace(/\n/g, '\\n') }); });
+            formData.getAll('edu_institution').forEach((inst, i) => { if (inst) resumeData.education.push({ institution: inst, degree: formData.getAll('edu_degree')[i], year: formData.getAll('edu_year')[i] }); });
+            
+            await fetch(window.location.origin + '/consultant/api/resume', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(resumeData)
+            });
+            renderConsultantResumePage(false);
+        }
+        window.onload = () => renderConsultantResumePage();
+    </script>
+</body>
+</html>
